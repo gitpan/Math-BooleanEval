@@ -3,7 +3,7 @@ use strict;
 
 # version
 use vars '$VERSION';
-$VERSION = '0.9';
+$VERSION = '0.91';
 
 
 =head1 NAME
@@ -196,6 +196,18 @@ Created: Sometime around the end of the twentieth century.  I'm kind of vague on
 
 =head1 VERSION
 
+Version 0.91   Oct 15, 2001
+
+
+=head1 HISTORY
+
 Version 0.9    December 18, 2000
+
+Original release.
+
+
+Version 0.91   Oct 15, 2001
+
+Same as 0.9, but hopefully more properly packaged for CPAN.  We'll see.
 
 =cut

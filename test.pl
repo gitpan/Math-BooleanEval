@@ -3,14 +3,10 @@
 
 ######################### We start with some black magic to print on failure.
 
-# TESTING
-use lib "ptcgi/PtLib/";
-
-
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..2\n"; }
+BEGIN { $| = 1; print "1..1\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Math::BooleanEval;
 $loaded = 1;
@@ -22,11 +18,3 @@ print "ok 1\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-# check if we can get a BooleanEval object
-my $bool = Math::BooleanEval->new('yes|no');
-if ($bool)
-	{print "ok 2\n"}
-else {
-	print "unable to create Bool object\nnot ok 2";
-	exit 99;
-}
