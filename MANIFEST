@@ -1,5 +1,6 @@
 BooleanEval.pm
 Changes
-MANIFEST
 Makefile.PL
+MANIFEST
+README
 test.pl

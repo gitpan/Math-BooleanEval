@@ -3,12 +3,12 @@ use strict;
 
 # version
 use vars '$VERSION';
-$VERSION = '0.91';
+$VERSION = '1.00';
 
 
 =head1 NAME
 
-BooleanEval - Boolean expression parser.
+Math::BooleanEval - Boolean expression parser
 
 =head1 SYNOPSIS
 
@@ -18,7 +18,7 @@ BooleanEval - Boolean expression parser.
  # evaluate each defined item in the expression to 1 or 0
  foreach my $item (@{$bool->{'arr'}}){
     next unless defined $item;
-    $item = ($item =~ m/^no|off|false|null$/i) ? 1 : 0;
+    $item = ($item =~ m/^no|off|false|null$/i) ? 0 : 1;
  }
 
  # evaluate the expression
@@ -35,7 +35,7 @@ expression.  The expression is parsed on the standard boolean delimiters:
 
 Using BooleanEval involves three steps: instantiate an object, loop 
 through the elements of the expression setting each to 1 or 0, then 
-calling eval();
+call eval();
 
 To create a new object, call new(), passing the expression as the 
 single argument:
@@ -64,79 +64,114 @@ Finally, get the evaluation of the expression with the eval() method:
 =cut
 
 
+#-------------------------------------------------------------------------
+# new
+# 
 
 =head2 Math::BooleanEval->new(expression)
 
 Instantiates a BooleanEval object.
 
 =cut
-sub new{
-	my ($class,$expr)=@_;
-	return undef unless (defined $expr);
-	my ($self,$fieldcount);
 
+sub new {
+	my ($class, $expr)=@_;
+	return undef unless (defined $expr);
+	
+	my $self = bless({}, $class);
+	my ($fieldcount, @org);
+	
 	# create self
-	$self={};
 	$self->{'expr'}=$expr;
-	$self->{'arr'}=[];
+	$self->{'org'}=\@org;
 	$self->{'blanks'} = {};
 	$self->{'pos'} = 0;
+	$self->{'auto_reset'} = 1;
 	$fieldcount = 0;
-
+	
 	# parse
-	while ($expr =~ m/([^\|\&\(\)\!\?\:]+)/go)
-		{
+	while ($expr =~ m/([^\|\&\(\)\!\?\:]+)/go) {
 		my $piece = $1;
 		$piece =~ s|^\s+||gos;
 		$piece =~ s|\s+$||gos;
-
+		
 		# if this is an empty space
-		unless ($piece =~ m|\S|so)
-			{
+		unless ($piece =~ m|\S|so) {
 			undef $self->{'blanks'}->{$fieldcount};
 			undef $piece;
-			}
-
-		push (@{$self->{'arr'}},$piece);
-		$fieldcount++;
 		}
-
-	bless $self,$class;
+		
+		push @org, $piece;
+		$fieldcount++;
+	}
+	
+	$self->reset;
 	return $self;
 }
+# 
+# new
+#-------------------------------------------------------------------------
 
 
-=head2 eval()
+#-------------------------------------------------------------------------
+# reset
+# 
+
+=head2 $bool->reset()
+
+Resets the object for another round of setting and evaluating.  
+The object automatically resets after C<eval()> unless you set
+the C<auto_reset> property to false (by default it's true),
+so it's not usually necessary to reset after calling C<eval>.
+
+=cut
+
+sub reset {
+	my ($self) = @_;
+	$self->{'arr'} = [@{$self->{'org'}}];
+}
+# 
+# reset
+#-------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------------------
+# eval
+# 
+
+=head2 $bool->eval()
 
 Evaluates the expression.  By the time you call this method you should have set 
 all elements in the {'arr'} array to 1, 0, or left them undefined if that's how 
 they were to begin with.  See examples above.
 
 =cut
-sub eval{
-	my ($self,%s)=@_;
+
+sub eval {
+	my ($self, %opts)=@_;
 	my ($i,$parms,$piece);
 	$parms = $self->{'expr'};
 
 	# change undefs to spaces or 0s
 	$i=0;
-	for $piece (@{$self->{'arr'}}){
+	foreach $piece (@{$self->{'arr'}}) {
 		if (defined $piece)
 			{$piece = $piece ? 1 : 0}
-		else{
+		else {
 			if (exists $self->{'blanks'}->{$i})
 				{$piece = ''}
 			else
 				{$piece = '0'}
 		}
+		
 		$i++;
 	}
-
-	$i=0;
+	
+	$i = 0;
 	$parms =~ s/[^\|\&\(\)\!\?\:]+/$self->{'arr'}[$i++]/go;
 
 	# if just a string is requested
-	if ($s{'string'})
+	if ($opts{'string'})
 		{return $parms}
 
 	# filter in just the safe characters
@@ -144,37 +179,59 @@ sub eval{
 		{$parms = $1}
 	else
 		{die 'illegal syntax'}
-
-	return (eval($parms)) ? 1 : 0 ;
+	
+	# auto reset if necessary
+	$self->{'auto_reset'} and $self->reset;
+	
+	return eval($parms) ? 1 : 0 ;
 }
+# 
+# eval
+#------------------------------------------------------------------------------------------
 
+
+#------------------------------------------------------------------------------------------
+# syntaxcheck
+# 
 
 =head2 syntaxcheck()
 
 Returns true if the expression is syntacally valid, false if not.  For 
 example, "Me & You" would return true but "Me & | You" would return false.
 
+C<syntaxcheck> can be called as either an object method:
+
+  if ($bool->syntaxcheck)
+
+or as a static sub:
+
+  if (Math::BooleanEval::syntaxcheck($expr))
+
 =cut
+
 sub syntaxcheck {
-	my $self = shift;
+	my ($self) = @_;
 	my ($bool, $piece, $str);
-	$bool = Math::BooleanEval->new($self->{'expr'});
-	for $piece (@{$bool->{'arr'}})
-		{
+	
+	$bool = Math::BooleanEval->new(ref($self) ? $self->{'expr'} : $self);
+	
+	foreach $piece (@{$bool->{'arr'}}) {
 		next unless defined $piece;
 		$piece = 1;
-		}
-
+	}
+	
 	$str = $bool->eval('string'=>1);
-
+	
 	if ($str =~ m/^([0\s^\|\&\(\)\!\?\:1]+)$/o)
 		{$str = $1}
 	else
 		{return 0}
-
-
+	
 	return eval($str . ';1') ? 1 : 0;
 }
+# 
+# syntaxcheck
+#------------------------------------------------------------------------------------------
 
 
 # return
@@ -196,18 +253,14 @@ Created: Sometime around the end of the twentieth century.  I'm kind of vague on
 
 =head1 VERSION
 
-Version 0.91   Oct 15, 2001
-
-
-=head1 HISTORY
-
-Version 0.9    December 18, 2000
-
-Original release.
-
-
-Version 0.91   Oct 15, 2001
-
-Same as 0.9, but hopefully more properly packaged for CPAN.  We'll see.
+  Version 0.9    December 18, 2000
+  Original release.
+  
+  Version 0.91   Oct 15, 2001
+  Same as 0.9, but hopefully more properly packaged for CPAN.  We'll see.
+  
+  Version 1.00   July 11, 2002
+  Added reset method.
+  Cleaned up documentation.
 
 =cut
